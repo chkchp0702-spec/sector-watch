@@ -1,0 +1,45 @@
+name: weekly-sector-watch
+
+on:
+  schedule:
+    - cron: '0 22 * * 0'      # 매주 월요일 07:00 KST (일요일 22:00 UTC)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'weekly 또는 monthly'
+        default: 'auto'
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 한글 폰트 설치 (히트맵용)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-nanum
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 리포트 생성
+        env:
+          MODE: ${{ github.event.inputs.mode || 'auto' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: 결과 커밋
+        run: |
+          git config user.name  "sector-watch-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add reports data
+          git commit -m "report: $(date -u +'%Y-%m-%d')" || echo "no changes"
+          git push
